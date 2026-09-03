@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>労働契約更新用ARROW変換ツール</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#ffffff; --line:#e2e5ea; --line2:#eef0f3;
+    --text:#1d2430; --muted:#69707d; --accent:#0f9d76; --accent-d:#0b7d5e;
+    --warn-bg:#fff8e6; --warn-line:#f0d089; --warn-text:#8a5d00;
+    --err-bg:#fdeceb; --err-line:#f2b8b4; --err-text:#a02a20;
+    --info-bg:#eef5ff; --info-line:#bcd4f5; --info-text:#1d4e8f;
+    --code:#f2f4f7;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#14171c; --panel:#1c2027; --line:#2e343d; --line2:#262b33;
+      --text:#e6e9ee; --muted:#98a1af; --accent:#25b48c; --accent-d:#1d9273;
+      --warn-bg:#332a12; --warn-line:#6b5620; --warn-text:#f0cd82;
+      --err-bg:#3a1e1c; --err-line:#7a3a34; --err-text:#f3aaa3;
+      --info-bg:#182634; --info-line:#2f4a68; --info-text:#9cc6f5;
+      --code:#232830;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic UI","Yu Gothic","Meiryo",system-ui,-apple-system,sans-serif;
+    font-size:14px;line-height:1.7;}
+  .wrap{max-width:1080px;margin:0 auto;padding:28px 20px 80px;}
+  header h1{font-size:20px;margin:0 0 8px;letter-spacing:.01em;}
+  .howto{margin:0;font-size:13px;color:var(--muted);}
+  .howto b{color:var(--text);font-weight:600;}
+  a{color:var(--accent);}
+  section{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:20px 22px;margin-top:20px;}
+  /* drop zone */
+  #drop{border:2px dashed var(--line);border-radius:10px;padding:34px 20px;text-align:center;
+    cursor:pointer;transition:.15s;background:var(--bg);}
+  #drop:hover,#drop.over{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 7%,var(--panel));}
+  #drop .big{font-size:15px;font-weight:600;}
+  #drop .sub{font-size:12.5px;color:var(--muted);margin-top:5px;}
+  #fileInfo{margin-top:12px;font-size:13px;}
+  .samplelink{margin:10px 0 0;font-size:12.5px;}
+  /* buttons */
+  button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);
+    background:var(--panel);color:var(--text);padding:8px 16px;}
+  button:hover{border-color:var(--muted);}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;padding:11px 26px;}
+  button.primary:hover{background:var(--accent-d);border-color:var(--accent-d);}
+  button:disabled{opacity:.45;cursor:not-allowed;}
+  /* messages */
+  .msg{border-radius:8px;padding:14px 16px;margin-top:16px;font-size:13px;}
+  .msg.warn{background:var(--warn-bg);border:1px solid var(--warn-line);color:var(--warn-text);}
+  .msg.err{background:var(--err-bg);border:1px solid var(--err-line);color:var(--err-text);}
+  .msg ul{margin:7px 0 0;padding-left:20px;}
+  .msg li{margin:2px 0;}
+  .msg .detail{margin-top:12px;overflow-x:auto;}
+  .msg .detail table{background:var(--panel);font-size:12px;}
+  .msg .detail th,.msg .detail td{border-color:var(--line2);}
+  .msg .detail tr.grp td{border-top:2px solid var(--line);}
+  .msg .detail td.kept{color:var(--accent);font-weight:700;}
+  .msg .detail td.drop{color:var(--muted);}
+  /* stats */
+  .stats{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:6px;}
+  .stat{background:var(--bg);border:1px solid var(--line2);border-radius:9px;padding:9px 16px;min-width:118px;}
+  .stat .n{font-size:20px;font-weight:700;line-height:1.25;}
+  .stat .l{font-size:11.5px;color:var(--muted);}
+  /* tables */
+  table{border-collapse:collapse;width:100%;font-size:12.5px;}
+  th,td{border:1px solid var(--line2);padding:5px 9px;text-align:left;white-space:nowrap;vertical-align:middle;}
+  th{background:var(--bg);font-weight:600;color:var(--muted);position:sticky;top:0;}
+  .preview{max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:8px;}
+  code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;}
+  .actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:18px;}
+  #dlName{font-size:12.5px;color:var(--muted);}
+  #dlName .f{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;
+    color:var(--text);display:block;}
+  #dlName .split{display:block;margin-top:4px;}
+  .hidden{display:none !important;}
+  /* プレビュー操作バー */
+  .pvbar{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin:22px 0 12px;}
+  .pvbar input[type=search],.pvbar select{font:inherit;font-size:12.5px;padding:6px 9px;
+    border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--text);max-width:100%;}
+  .pvbar input[type=search]{flex:1 1 240px;min-width:180px;}
+  .pvbar select{max-width:260px;}
+  .pvbar button{padding:6px 12px;font-size:12.5px;}
+  .pvcount{font-size:12px;color:var(--muted);margin-left:auto;white-space:nowrap;}
+  th.sortable{cursor:pointer;user-select:none;}
+  th.sortable:hover{color:var(--text);}
+  th .arrow{opacity:.35;font-size:10px;margin-left:3px;}
+  th.sorted .arrow{opacity:1;color:var(--accent);}
+  td .code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+  td .lbl{color:var(--muted);margin-left:7px;}
+  td .lbl::before{content:"（";}
+  td .lbl::after{content:"）";}
+  tr.empty td{text-align:center;color:var(--muted);padding:22px;}
+  mark{background:color-mix(in srgb,var(--accent) 32%,transparent);color:inherit;border-radius:2px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>労働契約更新用ARROW変換ツール</h1>
+  <p class="howto">
+    変換したファイルは、ARROW の <b>社員一覧 ＞ 操作 ＞ Excel/CSV社員更新 ＞ 従業員カスタム情報</b> から上書きしてください。
+  </p>
+</header>
+
+<section>
+  <div id="drop">
+    <div class="big">Excelファイルをドロップ</div>
+    <div class="sub">クリックして選択</div>
+  </div>
+  <input type="file" id="file" accept=".xlsx" class="hidden">
+  <div id="fileInfo"></div>
+  <p class="samplelink"><a href="#" id="sample">読み込ませるファイルの形式サンプル</a></p>
+  <div id="readMsg"></div>
+</section>
+
+<section id="resultSec" class="hidden">
+  <div class="stats" id="stats"></div>
+  <div id="issues"></div>
+  <div class="pvbar">
+    <input type="search" id="pvSearch" placeholder="検索">
+    <select id="pvId"><option value="">すべての項目</option></select>
+    <select id="pvVal"><option value="">すべての内容</option></select>
+    <button id="pvReset" type="button">クリア</button>
+    <span class="pvcount" id="pvCount"></span>
+  </div>
+  <div class="preview"><table id="previewTable"></table></div>
+  <div class="actions">
+    <button class="primary" id="dl">Excelをダウンロード</button>
+    <span id="dlName"></span>
+  </div>
+</section>
+
+</div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   1. ZIP / XLSX  読み込み（外部ライブラリ不使用）
+   ============================================================ */
+
+async function inflateRaw(bytes){
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+async function unzip(buf){
+  const u8 = new Uint8Array(buf), dv = new DataView(buf);
+  let eocd = -1;
+  const min = Math.max(0, u8.length - 22 - 65535);
+  for (let i = u8.length - 22; i >= min; i--){
+    if (dv.getUint32(i, true) === 0x06054b50){ eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error("ZIP構造が読み取れません。ファイルが .xlsx か確認してください。");
+  const count = dv.getUint16(eocd + 10, true);
+  let off = dv.getUint32(eocd + 16, true);
+  const dec = new TextDecoder("utf-8");
+  const out = {};
+  for (let n = 0; n < count; n++){
+    if (dv.getUint32(off, true) !== 0x02014b50) throw new Error("ZIPセントラルディレクトリが壊れています。");
+    const method   = dv.getUint16(off + 10, true);
+    const compSize = dv.getUint32(off + 20, true);
+    const nameLen  = dv.getUint16(off + 28, true);
+    const extraLen = dv.getUint16(off + 30, true);
+    const cmtLen   = dv.getUint16(off + 32, true);
+    const localOff = dv.getUint32(off + 42, true);
+    const name = dec.decode(u8.subarray(off + 46, off + 46 + nameLen));
+    const lNameLen  = dv.getUint16(localOff + 26, true);
+    const lExtraLen = dv.getUint16(localOff + 28, true);
+    const start = localOff + 30 + lNameLen + lExtraLen;
+    out[name] = { method, data: u8.subarray(start, start + compSize) };
+    off += 46 + nameLen + extraLen + cmtLen;
+  }
+  const files = {};
+  for (const name of Object.keys(out)){
+    const e = out[name];
+    files[name] = e.method === 0 ? e.data : await inflateRaw(e.data);
+  }
+  return files;
+}
+
+const XMLDEC = new TextDecoder("utf-8");
+function parseXML(bytes){
+  const doc = new DOMParser().parseFromString(XMLDEC.decode(bytes), "application/xml");
+  if (doc.getElementsByTagName("parsererror").length) throw new Error("XMLの解析に失敗しました。");
+  return doc;
+}
+const els = (parent, tag) => Array.prototype.slice.call(parent.getElementsByTagName(tag));
+
+// <si> のテキスト（ふりがな rPh は除外）
+function siText(si){
+  let s = "";
+  for (const child of Array.prototype.slice.call(si.children)){
+    if (child.tagName === "t") s += child.textContent;
+    else if (child.tagName === "r"){
+      for (const t of els(child, "t")) s += t.textContent;
+    }
+  }
+  return s;
+}
+
+function colIndex(ref){
+  let n = 0;
+  for (let i = 0; i < ref.length; i++){
+    const c = ref.charCodeAt(i);
+    if (c < 65 || c > 90) break;
+    n = n * 26 + (c - 64);
+  }
+  return n - 1;
+}
+
+/** xlsx を読み、最初のシートを 2次元配列（文字列/数値の生値）で返す */
+async function readXlsx(buf){
+  const files = await unzip(buf);
+  const get = p => { if (!files[p]) throw new Error("必要なパートが見つかりません: " + p); return files[p]; };
+
+  // 共有文字列
+  let shared = [];
+  if (files["xl/sharedStrings.xml"]){
+    shared = els(parseXML(files["xl/sharedStrings.xml"]), "si").map(siText);
+  }
+
+  // 先頭シートのパス解決
+  let sheetPath = null, sheetName = "";
+  try{
+    const wb = parseXML(get("xl/workbook.xml"));
+    const sh = els(wb, "sheet")[0];
+    sheetName = sh.getAttribute("name") || "";
+    const rid = sh.getAttribute("r:id") || sh.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id");
+    const rels = parseXML(get("xl/_rels/workbook.xml.rels"));
+    for (const rel of els(rels, "Relationship")){
+      if (rel.getAttribute("Id") === rid){
+        let t = rel.getAttribute("Target").replace(/^\/?xl\//, "").replace(/^\//, "");
+        sheetPath = "xl/" + t;
+      }
+    }
+  }catch(e){ /* フォールバックへ */ }
+  if (!sheetPath || !files[sheetPath]){
+    sheetPath = Object.keys(files).find(k => /^xl\/worksheets\/sheet\d+\.xml$/.test(k));
+  }
+  if (!sheetPath) throw new Error("ワークシートが見つかりません。");
+
+  const doc = parseXML(files[sheetPath]);
+  const rows = [];
+  for (const row of els(doc, "row")){
+    const r = parseInt(row.getAttribute("r"), 10);
+    const arr = [];
+    for (const c of els(row, "c")){
+      const ref = c.getAttribute("r");
+      if (!ref) continue;
+      const t = c.getAttribute("t");
+      let val = null;
+      if (t === "inlineStr"){
+        const is = els(c, "is")[0];
+        val = is ? siText(is) : "";
+      } else {
+        const v = els(c, "v")[0];
+        if (v) val = (t === "s") ? (shared[parseInt(v.textContent, 10)] ?? "") : v.textContent;
+      }
+      if (val !== null && val !== "") arr[colIndex(ref)] = val;
+    }
+    rows[r - 1] = arr;
+  }
+  for (let i = 0; i < rows.length; i++) if (!rows[i]) rows[i] = [];
+  return { sheetName, rows };
+}
+
+/* ============================================================
+   2. ZIP / XLSX  書き出し（無圧縮ZIP）
+   ============================================================ */
+
+const CRC_TABLE = (function(){
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++){
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(buf){
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+function zipStore(entries){ // entries: [{name, data:Uint8Array}]
+  const enc = new TextEncoder();
+  const parts = [], central = [];
+  let offset = 0;
+  const DOS_TIME = 0, DOS_DATE = 0x2821; // 2000-01-01
+  for (const e of entries){
+    const nameBytes = enc.encode(e.name);
+    const crc = crc32(e.data), size = e.data.length;
+    const lh = new Uint8Array(30), dv = new DataView(lh.buffer);
+    dv.setUint32(0, 0x04034b50, true); dv.setUint16(4, 20, true); dv.setUint16(6, 0x0800, true);
+    dv.setUint16(8, 0, true); dv.setUint16(10, DOS_TIME, true); dv.setUint16(12, DOS_DATE, true);
+    dv.setUint32(14, crc, true); dv.setUint32(18, size, true); dv.setUint32(22, size, true);
+    dv.setUint16(26, nameBytes.length, true); dv.setUint16(28, 0, true);
+    parts.push(lh, nameBytes, e.data);
+
+    const ch = new Uint8Array(46), cv = new DataView(ch.buffer);
+    cv.setUint32(0, 0x02014b50, true); cv.setUint16(4, 20, true); cv.setUint16(6, 20, true);
+    cv.setUint16(8, 0x0800, true); cv.setUint16(10, 0, true);
+    cv.setUint16(12, DOS_TIME, true); cv.setUint16(14, DOS_DATE, true);
+    cv.setUint32(16, crc, true); cv.setUint32(20, size, true); cv.setUint32(24, size, true);
+    cv.setUint16(28, nameBytes.length, true); cv.setUint32(42, offset, true);
+    central.push(ch, nameBytes);
+    offset += 30 + nameBytes.length + size;
+  }
+  let cdSize = 0;
+  for (const p of central) cdSize += p.length;
+  const eocd = new Uint8Array(22), ev = new DataView(eocd.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(8, entries.length, true); ev.setUint16(10, entries.length, true);
+  ev.setUint32(12, cdSize, true); ev.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, eocd], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+}
+
+const xesc = s => String(s)
+  .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "")   // XML1.0で禁止された制御文字を除去
+  .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+function colName(i){
+  let s = "";
+  i++;
+  while (i > 0){ const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = (i - m - 1) / 26; }
+  return s;
+}
+
+/** 2次元配列（すべて文字列）から xlsx Blob を作る */
+/** 1行分の <row> XML */
+function rowXml(row, r){
+  let out = '<row r="' + r + '">';
+  for (let c = 0; c < (row ? row.length : 0); c++){
+    const v = row[c];
+    if (v === null || v === undefined || v === "") continue;
+    out += '<c r="' + colName(c) + r + '" t="inlineStr"><is><t xml:space="preserve">'
+         + xesc(v) + '</t></is></c>';
+  }
+  return out + '</row>';
+}
+
+function sheetXml(aoa){
+  let maxCol = 0;
+  for (const row of aoa) if (row && row.length > maxCol) maxCol = row.length;
+  const dim = "A1:" + colName(Math.max(maxCol, 1) - 1) + Math.max(aoa.length, 1);
+  let sheet = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+    + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    + '<dimension ref="' + dim + '"/>'
+    + '<sheetViews><sheetView tabSelected="1" workbookViewId="0"/></sheetViews>'
+    + '<sheetFormatPr defaultRowHeight="14.4"/>'
+    + '<sheetData>';
+  for (let r = 0; r < aoa.length; r++) sheet += rowXml(aoa[r] || [], r + 1);
+  return sheet + '</sheetData></worksheet>';
+}
+
+function buildXlsx(aoa, sheetName){
+  const enc = new TextEncoder();
+  const sheet = sheetXml(aoa);
+  const F = (name, str) => ({ name, data: enc.encode(str) });
+  return zipStore([
+    F("[Content_Types].xml",
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+      + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+      + '<Default Extension="xml" ContentType="application/xml"/>'
+      + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+      + '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+      + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+      + '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>'
+      + '<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>'
+      + '</Types>'),
+    F("_rels/.rels",
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+      + '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>'
+      + '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>'
+      + '</Relationships>'),
+    F("xl/workbook.xml",
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
+      + ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+      + '<sheets><sheet name="' + xesc(sheetName) + '" sheetId="1" r:id="rId1"/></sheets></workbook>'),
+    F("xl/_rels/workbook.xml.rels",
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+      + '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+      + '</Relationships>'),
+    F("xl/styles.xml",
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+      + '<fonts count="1"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font></fonts>'
+      + '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>'
+      + '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
+      + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+      + '<cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs>'
+      + '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
+      + '</styleSheet>'),
+    F("docProps/core.xml",
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties"'
+      + ' xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/"'
+      + ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
+      + '<dc:title>カスタム情報</dc:title><dc:creator>契約更新カスタム情報変換ツール</dc:creator>'
+      + '<cp:lastModifiedBy>契約更新カスタム情報変換ツール</cp:lastModifiedBy>'
+      + '<dcterms:created xsi:type="dcterms:W3CDTF">' + new Date().toISOString().replace(/\.\d+Z$/, "Z") + '</dcterms:created>'
+      + '</cp:coreProperties>'),
+    F("docProps/app.xml",
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"'
+      + ' xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">'
+      + '<Application>Microsoft Excel</Application></Properties>'),
+    F("xl/worksheets/sheet1.xml", sheet),
+  ]);
+}
+
+/* ============================================================
+   3. 変換ルール定義
+   ============================================================ */
+
+// 出力ヘッダ（カスタム情報フォーマット.xlsx と同一）
+// ARROW「システム設定 > カスタム情報」の画面上の並び順。出力・プレビューはこの順に並べる。
+const CUSTOM_ORDER = [
+  "契約更新の有無",
+  "勤務日",
+  "始業時間",
+  "就業時間",          // 画面上の項目名は「終業時間」
+  "勤務時間（時間）",
+  "勤務時間（分）",
+  "社会保険加入有無",
+  "雇用保険加入有無",
+  "時給",
+  "休日手当",
+  "休日手当額",
+  "早朝手当",
+  "宅配手当",
+  "宅配従事者",
+  "資格手当",
+  "住民票住所",
+];
+const CUSTOM_RANK = new Map(CUSTOM_ORDER.map((id, i) => [id, i]));
+/** 定義に無いIDは末尾へ（同順位内は名前順） */
+function customRank(id){
+  return CUSTOM_RANK.has(id) ? CUSTOM_RANK.get(id) : CUSTOM_ORDER.length;
+}
+
+const OUT_HEADER = ["社員コード","社員名","社員名(カナ)","対象カスタム情報ID",
+  "内容(表形式の場合は左側の内容)(選択肢の場合は選択肢のコードや番号)","内容(表形式の右側の内容)"];
+
+// 元データの列見出し（キー → ヘッダ文字列の一部）
+const SRC_COLS = {
+  ts:      "タイムスタンプ",
+  shop:    "店舗名",
+  code:    "FPコード",
+  name:    "FP名",
+  renew:   "契約更新の有無",
+  ins:     "社会保険/雇用保険",
+  start:   "勤務時間（開始）",
+  end:     "勤務時間（終了）",
+  dur:     "1日何時間",
+  days:    "勤務曜日",
+  wage:    "時給",
+  holWeek: "日祝手当",
+  holWknd: "土日祝手当",
+  early:   "早朝手当",
+  deliv:   "宅配",
+  resid:   "在留カード",
+  esign:   "電子契約",
+  note:    "備考",
+};
+
+// 編集可能な選択肢マッピング（ARROW「システム設定 > カスタム情報」準拠）
+function defaultMapping(){
+  return {
+    renew: { title:"契約更新の有無", customId:"契約更新の有無", src:"契約更新の有無",
+      note:"選択肢(2択)：選択肢1=あり / 選択肢2=なし",
+      pairs:[ ["契約更新する","0","あり"], ["契約更新しない（退職）","1","なし"] ] },
+
+    shakai: { title:"社会保険加入有無", customId:"社会保険加入有無", src:"社会保険/雇用保険",
+      note:"選択肢(2択)：選択肢1=なし(0) / 選択肢2=あり(1)",
+      pairs:[ ["1）加入なし","0","なし"], ["2）社会保険加入済","1","あり"],
+              ["3）雇用保険加入済","0","なし"], ["4）更新月より社会保険加入希望","1","あり"] ] },
+
+    koyou: { title:"雇用保険加入有無", customId:"雇用保険加入有無", src:"社会保険/雇用保険",
+      note:"選択肢(2択)：選択肢1=なし(0) / 選択肢2=あり(1)",
+      pairs:[ ["1）加入なし","0","なし"], ["2）社会保険加入済","0","なし"],
+              ["3）雇用保険加入済","1","あり"], ["4）更新月より社会保険加入希望","0","なし"] ] },
+
+    days: { title:"勤務日", customId:"勤務日", src:"勤務曜日 [勤務曜日]",
+      note:"チェックボックス：ID 1=月 2=火 3=水 4=木 5=金 6=土 7=日。複数はカンマ区切りで出力。",
+      pairs:[ ["月","1","月"], ["火","2","火"], ["水","3","水"], ["木","4","木"],
+              ["金","5","金"], ["土","6","土"], ["日","7","日"],
+              ["日・祝","7","日"], ["日祝","7","日"], ["祝","7","日"] ] },
+
+    holType: { title:"休日手当（種別）", customId:"休日手当", src:"諸手当 [日祝手当] / [土日祝手当]",
+      note:"選択肢(複数)：ID 2=日祝 / ID 3=土日祝。「土日祝手当」が優先されます。",
+      pairs:[ ["日祝","2","日祝"], ["土日祝","3","土日祝"] ] },
+
+    holAmt: { title:"休日手当額", customId:"休日手当額", src:"諸手当 [日祝手当] / [土日祝手当]",
+      note:"選択肢(複数)：ID 1=なし 2=20円 3=30円 4=50円 5=60円 7=100円",
+      pairs:[ ["なし","1","なし"], ["20円","2","20円"], ["30円","3","30円"],
+              ["50円","4","50円"], ["60円","5","60円"], ["100円","7","100円"] ] },
+
+    early: { title:"早朝手当", customId:"早朝手当", src:"諸手当 [早朝手当]",
+      note:"選択肢(複数)：ID 1=なし 2=50円 3=100円",
+      pairs:[ ["なし","1","なし"], ["50円","2","50円"], ["100円","3","100円"] ] },
+
+    deliv: { title:"宅配従事者", customId:"宅配従事者", src:"宅配",
+      note:"選択肢(複数)：ID 1=宅配しない 2=宅配する（バイク・自動車） 3=宅配する（自転車）",
+      pairs:[ ["宅配しない","1","宅配しない"], ["宅配する（バイク・自動車）","2","宅配する（バイク・自動車）"],
+              ["宅配する（自転車）","3","宅配する（自転車）"] ] },
+  };
+}
+
+/** カスタム情報ID → Map(出力コード → ARROWの選択肢名) を作る（プレビュー表示用） */
+function buildLabels(mapping){
+  const byId = {};
+  for (const key of Object.keys(mapping)){
+    const g = mapping[key];
+    if (!byId[g.customId]) byId[g.customId] = new Map();
+    for (const pair of g.pairs){
+      const code = String(pair[1] ?? "").trim();
+      const label = pair[2];
+      if (code !== "" && label) byId[g.customId].set(code, label);
+    }
+  }
+  return byId;
+}
+
+/** 出力された「内容」を人が読める文字列にする（自由入力欄なら null） */
+function describe(labels, customId, value){
+  const m = labels[customId];
+  if (!m) return null;
+  const v = String(value ?? "").trim();
+  if (v === "") return null;
+  if (m.has(v)) return m.get(v);
+  if (v.includes(",")){                      // 勤務日のような複数選択
+    const parts = v.split(",").map(x => x.trim()).filter(x => x !== "");
+    const named = parts.map(x => m.get(x));
+    if (named.every(Boolean)) return named.join("・");
+  }
+  return null;
+}
+
+/* ============================================================
+   4. 変換処理
+   ============================================================ */
+
+const pad2 = n => String(n).padStart(2, "0");
+
+/** Excelのシリアル値（1899-12-30起点）を "YYYY/MM/DD HH:MM" にする */
+function excelDateText(n){
+  const v = Number(n);
+  if (!isFinite(v) || v <= 0) return "";
+  const d = new Date(Math.round((v - 25569) * 86400000));   // 25569 = 1970-01-01
+  return d.getUTCFullYear() + "/" + pad2(d.getUTCMonth() + 1) + "/" + pad2(d.getUTCDate())
+       + " " + pad2(d.getUTCHours()) + ":" + pad2(d.getUTCMinutes());
+}
+
+function toHM(v){
+  if (v === null || v === undefined || v === "") return null;
+  const s = String(v).trim();
+  const m = s.match(/^(\d{1,2})[:：](\d{1,2})/);
+  if (m) return [parseInt(m[1],10) % 24, parseInt(m[2],10)];
+  const n = Number(s);
+  if (!isFinite(n)) return null;
+  const mins = Math.round((n % 1) * 24 * 60);
+  return [Math.floor(mins / 60) % 24, mins % 60];
+}
+function toDuration(v){ // 経過時間 → [時, 分]
+  if (v === null || v === undefined || v === "") return null;
+  const s = String(v).trim();
+  const m = s.match(/^(\d{1,2})[:：](\d{1,2})/);
+  if (m) return [parseInt(m[1],10), parseInt(m[2],10)];
+  const n = Number(s);
+  if (!isFinite(n)) return null;
+  const mins = Math.round(n * 24 * 60);
+  return [Math.floor(mins / 60), mins % 60];
+}
+function numText(v){
+  const n = Number(String(v).trim());
+  if (!isFinite(n)) return String(v).trim();
+  return String(Math.round(n * 1e6) / 1e6);
+}
+
+/** 元データのヘッダ行から列インデックスを特定 */
+function locateColumns(header){
+  const idx = {};
+  const norm = s => String(s ?? "").replace(/[\s　]/g, "");
+  header.forEach((h, i) => {
+    const hn = norm(h);
+    if (!hn) return;
+    for (const key of Object.keys(SRC_COLS)){
+      if (idx[key] !== undefined) continue;
+      if (hn.includes(norm(SRC_COLS[key]))) idx[key] = i;
+    }
+  });
+  return idx;
+}
+
+function convert(rows, mapping, opts){
+  const warnings = [], errors = [];
+  const header = rows[0] || [];
+  const idx = locateColumns(header);
+
+  const required = ["code","renew"];
+  const missing = required.filter(k => idx[k] === undefined);
+  if (missing.length){
+    errors.push("必須の列が見つかりません：" + missing.map(k => SRC_COLS[k]).join(" / ")
+      + "。元データの1行目が見出し行になっているか確認してください。");
+    return { out:[], stats:{}, warnings, errors, dupDetail:null };
+  }
+  // 出力に使う列が欠けている場合だけ知らせる（タイムスタンプ・店舗名などは使わないので無視）
+  const USED = ["name","renew","ins","start","end","dur","days","wage","holWeek","holWknd","early","deliv"];
+  const lost = USED.filter(k => idx[k] === undefined);
+  if (lost.length) warnings.push("元データに列がありません：" + lost.map(k => SRC_COLS[k]).join(" / "));
+
+  // マッピング → Map
+  const M = {};
+  for (const key of Object.keys(mapping)){
+    const m = new Map();
+    for (const [k, v] of mapping[key].pairs) m.set(String(k).replace(/[\s　]/g, ""), String(v).trim());
+    M[key] = m;
+  }
+  const look = (key, val) => M[key].get(String(val ?? "").replace(/[\s　]/g, ""));
+
+  // レコード抽出
+  const cell = (row, key) => idx[key] === undefined ? "" : (row[idx[key]] ?? "");
+  let records = [];
+  for (let r = 1; r < rows.length; r++){
+    const row = rows[r];
+    if (!row || row.length === 0) continue;
+    const code = String(cell(row, "code")).trim();
+    const renew = String(cell(row, "renew")).trim();
+    if (!code && !renew) continue;              // 完全な空行
+    if (!code){ warnings.push("行 " + (r+1) + "：FPコードが空のため除外しました。"); continue; }
+    records.push({ excelRow: r + 1, row, code,
+      ts: Number(cell(row, "ts")) || 0,
+      renew });
+  }
+  const totalRead = records.length;
+
+  // 重複除去（最新タイムスタンプ）
+  let dupRemoved = 0, dupDetail = null;
+  if (opts.dedup){
+    const best = new Map();
+    for (const rec of records){
+      const cur = best.get(rec.code);
+      if (!cur || rec.ts >= cur.ts) best.set(rec.code, rec);
+    }
+    if (best.size < records.length){
+      dupRemoved = records.length - best.size;
+      const keep = new Set(Array.from(best.values()).map(r => r.excelRow));
+      const groups = new Map();
+      for (const rec of records){
+        if (!groups.has(rec.code)) groups.set(rec.code, []);
+        groups.get(rec.code).push(rec);
+      }
+      dupDetail = [];
+      for (const [code, list] of groups){
+        if (list.length < 2) continue;
+        dupDetail.push(list.slice().sort((a, b) => b.ts - a.ts).map(r => ({
+          code,
+          shop: String(cell(r.row, "shop")).trim(),
+          excelRow: r.excelRow,
+          ts: excelDateText(r.ts),
+          renew: r.renew,
+          kept: keep.has(r.excelRow),
+        })));
+      }
+      warnings.push("同一FPコードの重複回答 " + dupRemoved + " 件を除外しました（最新の回答を採用）。");
+      records = records.filter(r => keep.has(r.excelRow));
+    }
+  } else {
+    const seen = new Map();
+    records.forEach(r => seen.set(r.code, (seen.get(r.code) || 0) + 1));
+    const dups = Array.from(seen.entries()).filter(([, n]) => n > 1);
+    if (dups.length) warnings.push("同一FPコードが複数回出現しています（" + dups.length
+      + " コード）。重複除去がオフのため、すべて出力されます。");
+  }
+
+  // 変換
+  const out = [];
+  let renewCnt = 0, quitCnt = 0, skipped = 0;
+  const unknown = new Map();
+  const noteUnknown = (label, val, excelRow) => {
+    const k = label + " ／ 未定義の値「" + val + "」";
+    if (!unknown.has(k)) unknown.set(k, []);
+    unknown.get(k).push(excelRow);
+  };
+
+  for (const rec of records){
+    const row = rec.row;
+    const name = String(cell(row, "name")).trim();
+    const entries = [];        // [カスタム情報ID, 内容]
+    const isQuit = /しない|退職/.test(rec.renew);
+
+    // 契約更新の有無
+    const renewCode = look("renew", rec.renew);
+    if (renewCode === undefined && rec.renew) noteUnknown("契約更新の有無", rec.renew, rec.excelRow);
+    if (renewCode !== undefined) entries.push(["契約更新の有無", renewCode]);
+
+    if (isQuit){
+      quitCnt++;
+      if (opts.skipTaishoku){ skipped++; continue; }
+    } else {
+      renewCnt++;
+
+      // 勤務日
+      const rawDays = String(cell(row, "days")).trim();
+      if (rawDays){
+        const codes = [];
+        for (let tok of rawDays.split(/[,、／\/]/)){
+          tok = tok.replace(/[\s　]/g, "");
+          if (!tok) continue;
+          let code = look("days", tok);
+          if (code === undefined){
+            // 前方一致でリカバリ（例:「日・祝スイ」→「日・祝」）
+            let bestKey = null;
+            for (const k of M.days.keys()) if (tok.startsWith(k) && (!bestKey || k.length > bestKey.length)) bestKey = k;
+            if (bestKey){
+              code = M.days.get(bestKey);
+              noteUnknown("勤務曜日（前方一致で「" + bestKey + "」と解釈）", tok, rec.excelRow);
+            } else {
+              noteUnknown("勤務曜日", tok, rec.excelRow);
+            }
+          }
+          if (code !== undefined && !codes.includes(code)) codes.push(code);
+        }
+        codes.sort((a, b) => Number(a) - Number(b));
+        if (codes.length) entries.push(["勤務日", codes.join(",")]);
+      }
+
+      // 始業 / 就業
+      const st = toHM(cell(row, "start"));
+      if (st) entries.push(["始業時間", pad2(st[0]) + ":" + pad2(st[1])]);
+      const en = toHM(cell(row, "end"));
+      if (en) entries.push(["就業時間", pad2(en[0]) + ":" + pad2(en[1])]);
+
+      // 勤務時間（時間 / 分）
+      const du = toDuration(cell(row, "dur"));
+      if (du){
+        entries.push(["勤務時間（時間）", String(du[0])]);
+        entries.push(["勤務時間（分）", pad2(du[1])]);
+      }
+
+      // 社会保険 / 雇用保険
+      const ins = String(cell(row, "ins")).trim();
+      if (ins){
+        const s = look("shakai", ins), k = look("koyou", ins);
+        if (s === undefined || k === undefined) noteUnknown("社会保険/雇用保険", ins, rec.excelRow);
+        if (s !== undefined) entries.push(["社会保険加入有無", s]);
+        if (k !== undefined) entries.push(["雇用保険加入有無", k]);
+      }
+
+      // 時給
+      const wage = String(cell(row, "wage")).trim();
+      if (wage) entries.push(["時給", numText(wage)]);
+
+      // 休日手当（種別 / 金額）
+      const hWknd = String(cell(row, "holWknd")).trim();
+      const hWeek = String(cell(row, "holWeek")).trim();
+      let holType = null, holAmt = null;
+      if (hWknd && hWknd !== "なし"){ holType = look("holType", "土日祝"); holAmt = look("holAmt", hWknd); if (holAmt === undefined) noteUnknown("土日祝手当", hWknd, rec.excelRow); }
+      else if (hWeek && hWeek !== "なし"){ holType = look("holType", "日祝"); holAmt = look("holAmt", hWeek); if (holAmt === undefined) noteUnknown("日祝手当", hWeek, rec.excelRow); }
+      else if (hWknd || hWeek){ holAmt = look("holAmt", "なし"); }
+      if (holType !== null && holType !== undefined) entries.push(["休日手当", holType]);
+      else if (opts.holidayAlways && (hWknd || hWeek)){
+        const fallback = look("holType", "日祝");
+        if (fallback !== undefined) entries.push(["休日手当", fallback]);
+      }
+      if (holAmt !== null && holAmt !== undefined) entries.push(["休日手当額", holAmt]);
+
+      // 早朝手当
+      const early = String(cell(row, "early")).trim();
+      if (early){
+        const c = look("early", early);
+        if (c === undefined) noteUnknown("早朝手当", early, rec.excelRow);
+        else entries.push(["早朝手当", c]);
+      }
+
+      // 宅配従事者
+      const dv = String(cell(row, "deliv")).trim();
+      if (dv){
+        const c = look("deliv", dv);
+        if (c === undefined) noteUnknown("宅配", dv, rec.excelRow);
+        else entries.push(["宅配従事者", c]);
+      }
+    }
+
+    // カスタム情報ID を ARROW の画面上の並び順に整列
+    entries.sort((a, b) => {
+      const d = customRank(a[0]) - customRank(b[0]);
+      return d !== 0 ? d : a[0].localeCompare(b[0], "ja");
+    });
+    for (const [id, val] of entries) out.push([rec.code, name, "", id, val, ""]);
+  }
+
+  for (const [label, rowsList] of unknown){
+    warnings.push(label + "（該当行: " + rowsList.slice(0, 10).join(", ")
+      + (rowsList.length > 10 ? " ほか計 " + rowsList.length + " 行" : "") + "）");
+  }
+
+  const aoa = [["__format_version", "1.0.0"], OUT_HEADER.slice()].concat(out);
+  return {
+    out, aoa, dupDetail,
+    stats: { totalRead, dupRemoved, employees: renewCnt + quitCnt - skipped,
+             renewCnt, quitCnt, skipped, rows: out.length },
+    warnings, errors
+  };
+}
+
+/* ============================================================
+   4-2. 出力ファイルの分割（ARROWは1MB超をインポートできない）
+   ============================================================ */
+
+const MAX_BYTES = 1000 * 1000;   // 1MB
+const HEAD_ROWS = () => [["__format_version", "1.0.0"], OUT_HEADER.slice()];
+
+const UTF8 = new TextEncoder();
+/** aoa の行を r 行目から並べたときの XML バイト数 */
+function rowsBytes(rows, from){
+  let n = 0;
+  for (let i = 0; i < rows.length; i++) n += UTF8.encode(rowXml(rows[i], from + i)).length;
+  return n;
+}
+/** シート以外（ZIP構造・固定パート）のバイト数 */
+let _overhead = null;
+function xlsxOverhead(){
+  if (_overhead === null){
+    const empty = HEAD_ROWS();
+    _overhead = buildXlsx(empty, "Worksheet").size - UTF8.encode(sheetXml(empty)).length;
+  }
+  return _overhead;
+}
+
+/**
+ * 出力行を 1ファイル MAX_BYTES 以内に収まるよう分割する。
+ * 同一社員の行は必ず同じファイルに入れる（別ファイルに分かれると上書きし合うため）。
+ */
+function splitOutput(out){
+  // 出力は社員ごとに連続しているので、社員コードの変わり目でまとめる
+  const groups = [];
+  for (const row of out){
+    const last = groups[groups.length - 1];
+    if (last && last[0][0] === row[0]) last.push(row);
+    else groups.push([row]);
+  }
+
+  const head = HEAD_ROWS();
+  const base = xlsxOverhead() + UTF8.encode(sheetXml(head)).length + 256;  // 256 は dimension の桁ぶれ等の余裕
+  const files = [];
+  let cur = [], bytes = base;
+  for (const g of groups){
+    const add = rowsBytes(g, head.length + cur.length + 1);
+    if (cur.length && bytes + add > MAX_BYTES){
+      files.push(cur);
+      cur = []; bytes = base;
+    }
+    cur = cur.concat(g);
+    bytes += add;
+  }
+  if (cur.length) files.push(cur);
+  return files.map(rows => head.concat(rows));
+}
+
+/** 読み込ませる元データ（フォーム回答）の形式サンプル */
+function sampleAoa(){
+  return [
+    ["タイムスタンプ", "店舗名", "FPコード", "FP名（フルネーム）", "契約更新の有無",
+     "社会保険/雇用保険", "勤務時間（開始）", "勤務時間（終了）",
+     "勤務時間（開始から終了までのうち、1日何時間か）", "勤務曜日 [勤務曜日]", "時給（数字のみ）",
+     "諸手当 [日祝手当]", "諸手当 [土日祝手当]", "諸手当 [早朝手当]", "宅配",
+     "在留カード", "電子契約の可否", "備考\u3000※住所変更などあれば"],
+    ["2026/08/17 13:54", "〇〇店", "KN000001", "山田 太郎", "契約更新する",
+     "2）社会保険加入済", "9:00", "17:30", "7:30", "月, 水, 金, 日・祝", "1200",
+     "50円", "なし", "なし", "宅配する（自転車）", "なし", "可", ""],
+    ["2026/08/17 14:20", "〇〇店", "KN000002", "鈴木 花子", "契約更新しない（退職）",
+     "", "", "", "", "", "", "", "", "", "", "", "", ""],
+  ];
+}
+
+/* ============================================================
+   5. UI
+   ============================================================ */
+
+const $ = id => document.getElementById(id);
+let MAPPING = defaultMapping();
+let SRC_ROWS = null, RESULT = null;
+let PV_ROWS = [];   // プレビュー用の行（内容の選択肢名を付与済み）
+const PV = { q:"", id:"", val:"", sortCol:null, sortDir:1, LIMIT:500 };
+
+function msg(kind, title, items){
+  const d = document.createElement("div");
+  d.className = "msg " + kind;
+  const b = document.createElement("strong");
+  b.textContent = title;
+  d.appendChild(b);
+  if (items && items.length){
+    const ul = document.createElement("ul");
+    for (const it of items){
+      const li = document.createElement("li");
+      li.textContent = it;
+      ul.appendChild(li);
+    }
+    d.appendChild(ul);
+  }
+  return d;
+}
+
+/** 重複回答の明細テーブル */
+function dupDetailTable(groups){
+  const wrap = document.createElement("div");
+  wrap.className = "detail";
+  const t = document.createElement("table");
+  const head = ["FPコード", "店舗名", "回答日時", "契約更新の有無", "元データの行", ""];
+  const trh = document.createElement("tr");
+  for (const h of head){
+    const th = document.createElement("th");
+    th.textContent = h;
+    trh.appendChild(th);
+  }
+  t.appendChild(trh);
+  groups.forEach((list, gi) => {
+    list.forEach((e, ei) => {
+      const tr = document.createElement("tr");
+      if (gi > 0 && ei === 0) tr.className = "grp";
+      const cells = [e.code, e.shop, e.ts, e.renew, String(e.excelRow), e.kept ? "採用" : "除外"];
+      cells.forEach((v, ci) => {
+        const td = document.createElement("td");
+        td.textContent = v;
+        if (ci === 5) td.className = e.kept ? "kept" : "drop";
+        tr.appendChild(td);
+      });
+      t.appendChild(tr);
+    });
+  });
+  wrap.appendChild(t);
+  return wrap;
+}
+
+function run(){
+  if (!SRC_ROWS) return;
+  // 重複回答は最新のものを採用。退職者は「契約更新の有無 = なし」の1行だけ出力する。
+  const opts = { dedup: true, holidayAlways: false, skipTaishoku: false };
+  let res;
+  try{
+    res = convert(SRC_ROWS, MAPPING, opts);
+  }catch(e){
+    $("resultSec").classList.remove("hidden");
+    $("issues").innerHTML = "";
+    $("issues").appendChild(msg("err", "変換中にエラーが発生しました：" + e.message));
+    return;
+  }
+  RESULT = res;
+  $("resultSec").classList.remove("hidden");
+
+  // 統計
+  const s = res.stats;
+  const cards = [
+    ["対象社員数", s.employees ?? 0],
+    ["契約更新する", s.renewCnt ?? 0],
+    ["退職", s.quitCnt ?? 0],
+    ["出力行数", s.rows ?? 0],
+  ];
+  $("stats").innerHTML = cards.map(([l, n]) =>
+    '<div class="stat"><div class="n">' + n + '</div><div class="l">' + l + '</div></div>').join("");
+
+  // メッセージ
+  const box = $("issues");
+  box.innerHTML = "";
+  if (res.errors.length) box.appendChild(msg("err", "エラー", res.errors));
+  if (res.warnings.length){
+    const w = msg("warn", "確認してください", res.warnings);
+    if (res.dupDetail && res.dupDetail.length) w.appendChild(dupDetailTable(res.dupDetail));
+    box.appendChild(w);
+  }
+
+  // プレビュー用データを作成（内容に ARROW の選択肢名を付与）
+  const labels = buildLabels(MAPPING);
+  PV_ROWS = res.out.map((row, i) => {
+    const label = describe(labels, row[3], row[4]);
+    return {
+      i, row, label,
+      // 検索用にまとめた文字列
+      hay: (row[0] + " " + row[1] + " " + row[2] + " " + row[3] + " " + row[4] + " " + (label || "")).toLowerCase(),
+    };
+  });
+  refreshPreviewFilters();
+  renderPreview();
+
+  // ARROW は 1MB を超えるファイルをインポートできないので、社員単位で分割する
+  const stamp = new Date();
+  const base = "カスタム情報_変換後_" + stamp.getFullYear() + pad2(stamp.getMonth() + 1) + pad2(stamp.getDate());
+  const parts = res.out.length ? splitOutput(res.out) : [];
+  const files = parts.map((aoa, i) => ({
+    name: base + (parts.length > 1 ? "_" + (i + 1) : "") + ".xlsx",
+    blob: buildXlsx(aoa, "Worksheet"),
+  }));
+
+  const info = $("dlName");
+  info.innerHTML = "";
+  for (const f of files){
+    const line = document.createElement("span");
+    line.className = "f";
+    line.textContent = f.name + "  " + Math.round(f.blob.size / 1000) + " KB";
+    info.appendChild(line);
+  }
+  if (files.length > 1){
+    const note = document.createElement("span");
+    note.className = "split";
+    note.textContent = "1MBを超えるため分割しました。" + files.length + "回に分けて取り込んでください。";
+    info.appendChild(note);
+  }
+
+  $("dl").textContent = files.length > 1 ? "Excelをダウンロード（" + files.length + "ファイル）" : "Excelをダウンロード";
+  $("dl").disabled = files.length === 0;
+  $("dl").onclick = async () => {
+    for (const f of files){
+      saveBlob(f.blob, f.name);
+      if (files.length > 1) await new Promise(r => setTimeout(r, 400));
+    }
+  };
+}
+
+function saveBlob(blob, name){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+}
+
+/* ---------- プレビュー：検索 / フィルタ / ソート ---------- */
+
+const PV_HEAD = ["社員コード", "社員名", "社員名(カナ)", "対象カスタム情報ID", "内容", "内容(右側)"];
+
+/** 現在の絞り込み条件に合う行を返す */
+function pvFiltered(ignoreValueFilter){
+  const q = PV.q.trim().toLowerCase();
+  return PV_ROWS.filter(r => {
+    if (PV.id && r.row[3] !== PV.id) return false;
+    if (!ignoreValueFilter && PV.val && r.row[4] !== PV.val) return false;
+    if (q && !r.hay.includes(q)) return false;
+    return true;
+  });
+}
+
+/** 項目・内容のプルダウンの選択肢を作り直す */
+function refreshPreviewFilters(){
+  const idSel = $("pvId");
+  const ids = Array.from(new Set(PV_ROWS.map(r => r.row[3])))
+    .sort((a, b) => (customRank(a) - customRank(b)) || a.localeCompare(b, "ja"));
+  if (PV.id && !ids.includes(PV.id)) PV.id = "";
+  idSel.innerHTML = '<option value="">すべての項目</option>'
+    + ids.map(id => '<option value="' + xesc(id) + '">' + xesc(id) + "</option>").join("");
+  idSel.value = PV.id;
+
+  const valSel = $("pvVal");
+  const seen = new Map();
+  for (const r of pvFiltered(true)){
+    if (!seen.has(r.row[4])) seen.set(r.row[4], r.label);
+  }
+  const vals = Array.from(seen.keys()).sort(cmpNatural);
+  if (PV.val && !seen.has(PV.val)) PV.val = "";
+  valSel.innerHTML = '<option value="">すべての内容</option>'
+    + vals.map(v => '<option value="' + xesc(v) + '">'
+        + xesc(v + (seen.get(v) ? "（" + seen.get(v) + "）" : "")) + "</option>").join("");
+  valSel.value = PV.val;
+  // 項目を1つに絞ったときだけ内容フィルタが実用的なので、それ以外は選択肢が多すぎないよう案内
+  valSel.disabled = vals.length === 0;
+}
+
+/** 数値なら数値として、それ以外は日本語ロケールで比較 */
+function cmpNatural(a, b){
+  const na = Number(a), nb = Number(b);
+  if (a !== "" && b !== "" && isFinite(na) && isFinite(nb) && na !== nb) return na - nb;
+  return String(a).localeCompare(String(b), "ja");
+}
+
+/** 検索語をハイライトした要素を返す */
+function highlight(text, q){
+  const frag = document.createDocumentFragment();
+  const str = String(text ?? "");
+  if (!q){ frag.appendChild(document.createTextNode(str)); return frag; }
+  const lower = str.toLowerCase();
+  let from = 0, at;
+  while ((at = lower.indexOf(q, from)) !== -1){
+    if (at > from) frag.appendChild(document.createTextNode(str.slice(from, at)));
+    const mk = document.createElement("mark");
+    mk.textContent = str.slice(at, at + q.length);
+    frag.appendChild(mk);
+    from = at + q.length;
+  }
+  if (from < str.length) frag.appendChild(document.createTextNode(str.slice(from)));
+  return frag;
+}
+
+function renderPreview(){
+  const t = $("previewTable");
+  t.innerHTML = "";
+
+  // ヘッダ（クリックでソート）
+  const trh = document.createElement("tr");
+  PV_HEAD.forEach((h, ci) => {
+    const th = document.createElement("th");
+    th.textContent = h;
+    if (ci !== 5){
+      th.className = "sortable" + (PV.sortCol === ci ? " sorted" : "");
+      th.title = "クリックで並べ替え（3回目で元の出力順に戻ります）";
+      const ar = document.createElement("span");
+      ar.className = "arrow";
+      ar.textContent = PV.sortCol === ci ? (PV.sortDir > 0 ? "▲" : "▼") : "⇅";
+      th.appendChild(ar);
+      th.addEventListener("click", () => {
+        if (PV.sortCol !== ci){ PV.sortCol = ci; PV.sortDir = 1; }
+        else if (PV.sortDir > 0){ PV.sortDir = -1; }
+        else { PV.sortCol = null; PV.sortDir = 1; }
+        renderPreview();
+      });
+    }
+    trh.appendChild(th);
+  });
+  t.appendChild(trh);
+
+  // 絞り込み → 並べ替え
+  let rows = pvFiltered(false);
+  if (PV.sortCol !== null){
+    const ci = PV.sortCol, dir = PV.sortDir;
+    rows = rows.slice().sort((a, b) => {
+      // 対象カスタム情報ID 列は ARROW の画面上の並び順で比較する
+      const c = (ci === 3)
+        ? (customRank(a.row[3]) - customRank(b.row[3])) || a.row[3].localeCompare(b.row[3], "ja")
+        : cmpNatural(a.row[ci], b.row[ci]);
+      return c !== 0 ? c * dir : a.i - b.i;
+    });
+  }
+
+  const q = PV.q.trim().toLowerCase();
+  const shown = rows.slice(0, PV.LIMIT);
+  for (const r of shown){
+    const tr = document.createElement("tr");
+    r.row.forEach((v, ci) => {
+      const td = document.createElement("td");
+      if (ci === 4 && r.label){
+        const code = document.createElement("span");
+        code.className = "code";
+        code.appendChild(highlight(v, q));
+        const lbl = document.createElement("span");
+        lbl.className = "lbl";
+        lbl.appendChild(highlight(r.label, q));
+        td.append(code, lbl);
+      } else {
+        td.appendChild(highlight(v, q));
+      }
+      tr.appendChild(td);
+    });
+    t.appendChild(tr);
+  }
+  if (rows.length === 0){
+    const tr = document.createElement("tr");
+    tr.className = "empty";
+    const td = document.createElement("td");
+    td.colSpan = PV_HEAD.length;
+    td.textContent = "条件に一致する行がありません。";
+    tr.appendChild(td);
+    t.appendChild(tr);
+  }
+
+  const total = PV_ROWS.length;
+  $("pvCount").textContent = (rows.length === total)
+    ? "全 " + total + " 行"
+    : rows.length + " 行 / 全 " + total + " 行";
+  if (rows.length > shown.length){
+    $("pvCount").textContent += " ／ 先頭 " + shown.length + " 行のみ表示";
+  }
+}
+
+async function handleFile(f){
+  $("readMsg").innerHTML = "";
+  $("fileInfo").textContent = "読み込み中…";
+  try{
+    if (typeof DecompressionStream === "undefined")
+      throw new Error("このブラウザは非対応です。Chrome / Edge / Safari の最新版でお試しください。");
+    const buf = await f.arrayBuffer();
+    const { rows } = await readXlsx(buf);
+    SRC_ROWS = rows;
+    const dataRows = rows.slice(1).filter(r => r && r.length).length;
+    $("fileInfo").innerHTML = '<span class="mono">' + xesc(f.name) + "</span>　" + dataRows + " 行";
+    run();
+    $("resultSec").scrollIntoView({ behavior: "smooth", block: "start" });
+  }catch(e){
+    SRC_ROWS = null;
+    $("fileInfo").innerHTML = "";
+    $("readMsg").appendChild(msg("err", "読み込みに失敗しました：" + e.message));
+    $("resultSec").classList.add("hidden");
+  }
+}
+
+// ドラッグ&ドロップ / クリック選択
+const drop = $("drop"), fileInput = $("file");
+drop.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => {
+  e.preventDefault(); drop.classList.add("over");
+}));
+["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => {
+  e.preventDefault(); drop.classList.remove("over");
+}));
+drop.addEventListener("drop", e => {
+  const f = e.dataTransfer.files[0];
+  if (f) handleFile(f);
+});
+$("sample").addEventListener("click", e => {
+  e.preventDefault();
+  saveBlob(buildXlsx(sampleAoa(), "フォームの回答 1"), "元データ_形式サンプル.xlsx");
+});
+
+// プレビューの検索 / フィルタ
+let pvTimer = null;
+$("pvSearch").addEventListener("input", e => {
+  PV.q = e.target.value;
+  clearTimeout(pvTimer);
+  pvTimer = setTimeout(() => { refreshPreviewFilters(); renderPreview(); }, 150);
+});
+$("pvId").addEventListener("change", e => {
+  PV.id = e.target.value; PV.val = "";
+  refreshPreviewFilters(); renderPreview();
+});
+$("pvVal").addEventListener("change", e => {
+  PV.val = e.target.value;
+  renderPreview();
+});
+$("pvReset").addEventListener("click", () => {
+  PV.q = ""; PV.id = ""; PV.val = ""; PV.sortCol = null; PV.sortDir = 1;
+  $("pvSearch").value = "";
+  refreshPreviewFilters(); renderPreview();
+});
+</script>
+</body>
+</html>

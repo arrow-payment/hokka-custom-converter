@@ -771,12 +771,12 @@ function convert(rows, mapping, opts){
       let holType = null, holAmt = null;
       if (hWknd && hWknd !== "なし"){ holType = look("holType", "土日祝"); holAmt = look("holAmt", hWknd); if (holAmt === undefined) noteUnknown("土日祝手当", hWknd, rec.excelRow); }
       else if (hWeek && hWeek !== "なし"){ holType = look("holType", "日祝"); holAmt = look("holAmt", hWeek); if (holAmt === undefined) noteUnknown("日祝手当", hWeek, rec.excelRow); }
-      else if (hWknd || hWeek){ holAmt = look("holAmt", "なし"); }
-      if (holType !== null && holType !== undefined) entries.push(["休日手当", holType]);
-      else if (opts.holidayAlways && (hWknd || hWeek)){
-        const fallback = look("holType", "日祝");
-        if (fallback !== undefined) entries.push(["休日手当", fallback]);
+      else if (hWknd || hWeek){
+        // どちらも「なし」のときは 種別=日祝 / 金額=なし とする
+        holType = look("holType", "日祝");
+        holAmt = look("holAmt", "なし");
       }
+      if (holType !== null && holType !== undefined) entries.push(["休日手当", holType]);
       if (holAmt !== null && holAmt !== undefined) entries.push(["休日手当額", holAmt]);
 
       // 早朝手当
@@ -950,7 +950,7 @@ function dupDetailTable(groups){
 function run(){
   if (!SRC_ROWS) return;
   // 重複回答は最新のものを採用。退職者は「契約更新の有無 = なし」の1行だけ出力する。
-  const opts = { dedup: true, holidayAlways: false, skipTaishoku: false };
+  const opts = { dedup: true, skipTaishoku: false };
   let res;
   try{
     res = convert(SRC_ROWS, MAPPING, opts);
